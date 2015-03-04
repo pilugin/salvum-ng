@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- 
+    This interface is inverted: Proxy and Adapter are implemented vise-versa.
+    
+    Such decision was made because each decodr is a separate process, 
+    thus they cannot provide the same DBus service.
+    
+    So each decoder connects to org.salvum.Decodr as a proxy. Each decodr gets a separate object of DecodrCtrl.
+    Signals are used to send message to Decodrs, and method calls are for getting messages from Decodrs.
+-->
+<node name="/">
+    <interface name="org.salvum.DecodrCtrl">
+    
+        <method name="fetchAtEnd">
+            <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+
+            <annotation name="org.qtproject.QtDBus.QtTypeName.In1" value="Common::DecodedClusters"/>
+            <annotation name="org.qtproject.QtDBus.QtTypeName.In2" value="Common::RejectedClusters"/>
+            <annotation name="org.qtproject.QtDBus.QtTypeName.In3" value="Common::ImageInfo"/>
+
+            <arg type="b" name="complete" direction="in"/>
+            <arg type="a(iii)" name="decodedClusters" direction="in"/>
+            <arg type="a(iiai)" name="rejectedClusters" direction="in"/>
+            <arg type="(iis)" name="imageInfo" direction="in"/>
+        </method>
+        
+        <method name="decodingEnd">
+            <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+        
+            <arg type="b" name="success" direction="in"/>
+        </method>
+        
+        <method name="thumbnailCreated">
+            <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+            
+            <arg type="s" name="path" direction="in"/>
+        </method>
+        
+        <method name="progress">
+            <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+            
+            <arg type="i" name="clustersDecoded" direction="in"/>
+            <arg type="i" name="blocksDecoded" direction="in"/>
+            <arg type="i" name="blocksTotal" direction="in"/>
+        </method>
+
+        <method name="heartbeat">
+            <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/> 
+        </method>
+
+        <signal name="start">
+            <arg type="i" name="clusterNo" direction="out"/>
+            <arg type="s" name="shmemPath" direction="out"/>
+            <arg type="s" name="workspacePath" direction="out"/>
+        </signal>                
+
+        <signal name="baseline">
+            <arg type="i" name="clusterNo" direction="out"/>
+        </signal>
+        
+        <signal name="exit"/>
+    
+    </interface>
+</node>
