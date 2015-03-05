@@ -1,3 +1,3 @@
 
 TEMPLATE = subdirs
-SUBDIRS = common dbus core util
+SUBDIRS = common dbus core util jpeg
