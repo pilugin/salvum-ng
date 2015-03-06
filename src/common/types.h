@@ -22,6 +22,25 @@ struct Result
     QString error;
 };
 
+class Buffer
+{
+public:
+    Buffer();
+    Buffer(const Buffer &other);
+    Buffer &operator=(const Buffer &other);
+
+    void setData(const QByteArray &arr);
+    bool equalsTo(const QByteArray &arr) const;
+
+    QPair<const char *, int> read(int len);
+    bool isEmpty() const;
+    int bytesLeft() const;
+
+private:
+    QByteArray mData;
+    int mPos;
+};
+
 }
 
 Q_DECLARE_METATYPE(Common::Cluster)

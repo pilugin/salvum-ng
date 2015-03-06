@@ -1,8 +1,9 @@
 HEADERS += \
-    $$PWD/history.h
+    $$PWD/history.h \
+    $$PWD/decodr.h
 
 SOURCES += \
-#    $$PWD/fetch.cpp
+    $$PWD/history.cpp
 
 INCLUDEPATH *= $$PWD/.. $$PWD/../../picojpeg/
 

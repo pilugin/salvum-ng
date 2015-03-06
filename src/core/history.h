@@ -11,17 +11,38 @@ namespace Core {
 class BaseFrame
 {
 public:
-    void setFail(bool fail =true) { m_isFail = fail; }
-    bool isFail() const { return m_isFail; }
+    BaseFrame();
+    BaseFrame(const BaseFrame &other);
 
-    bool initOk() const;
-    bool decodOk() const;
-    bool checkOk() const;
+    BaseFrame &operator= (const BaseFrame &other);
 
-    Common::Clusters clusters() const;
+    void setFail(bool fail =true)   { /*m_isFail = fail;*/ }
+    bool isFail() const             { return false; /*m_isFail;*/ } // connect this to with decod/check
+
+    bool initOk() const     { return mInitOk; }
+    bool decodOk() const    { return mDecodOk; }
+    bool checkOk() const    { return mCheckOk; }
+
+    void setInitialized()   { mInitOk = true; }
+    void setDecodFailed()   { mDecodOk = false; }
+    void setCheckFailed()   { mCheckOk = false; }
+
+    Common::Cluster cluster() const { return mCluster; }
+    void setCluster(const Common::Cluster &cluster) { mCluster = cluster; }
+
+    bool bufferEmpty() const;
+    QPair<const char *, int> bufferRead(int len);
+    int bufferBytesLeft() const;
+
+protected:
+
 private:
-    bool m_isFail;
+    bool mInitOk;
+    bool mDecodOk;
+    bool mCheckOk;
 
+    Common::Cluster mCluster;
+    Common::Buffer mBuffer;
 };
 
 template <class Frame>
@@ -82,6 +103,36 @@ const Frame &History<Frame>::getLastGoodFrame() const
 
     Q_ASSERT(m_undoLine.size() >1);
     return m_undoLine[ m_undoLine.size() -2 ];
+}
+
+template <class Frame>
+void History<Frame>::selectFrame(int at)
+{
+    Q_ASSERT(at < m_undoLine.size() && at>0);
+
+    int i=0;
+    auto itr = m_undoLine.begin();
+    while (i<at) {
+        if (itr->isFail()) {
+            itr = m_undoLine.erase(itr);
+            --at;
+        } else {
+            ++i;
+            ++itr;
+        }
+    }
+    if (itr->isFail()) {
+        itr->setFail(false);
+
+    } else {
+        auto nextitr = itr;
+        ++nextitr;
+        if (nextitr != m_undoLine.end() && !nextitr->isFail()) {
+            m_blacklistedCluster = nextitr->cluster().first;
+        }
+    }
+
+    m_undoLine.erase(++itr, m_undoLine.end());
 }
 
 
