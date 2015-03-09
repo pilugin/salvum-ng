@@ -26,6 +26,16 @@ BaseFrame &BaseFrame::operator =(const BaseFrame &other)
     return *this;
 }
 
+void BaseFrame::restoreCheckOk()
+{
+    mCheckOk = mDecodOk = true;
+}
+
+bool BaseFrame::isFail() const
+{
+    return mDecodOk && mCheckOk;
+}
+
 bool BaseFrame::bufferEmpty() const
 {
     // Buffer is empty and ALREADY copied from Cluster

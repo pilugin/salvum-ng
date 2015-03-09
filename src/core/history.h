@@ -16,8 +16,8 @@ public:
 
     BaseFrame &operator= (const BaseFrame &other);
 
-    void setFail(bool fail =true)   { /*m_isFail = fail;*/ }
-    bool isFail() const             { return false; /*m_isFail;*/ } // connect this to with decod/check
+    bool isFail() const;
+    void restoreCheckOk();
 
     bool initOk() const     { return mInitOk; }
     bool decodOk() const    { return mDecodOk; }
@@ -52,8 +52,7 @@ class History
 
 public:
     History();
-    void addFrame(const Frame &frame);
-    bool addFailedFrame(const Frame &frame); //< adds only if previous frame wasn't failed; return true on add
+    bool addFrame(const Frame &frame);
     const Frame &getLastGoodFrame() const;
 
     int getFrameCount() const { return m_undoLine.size(); }
@@ -75,22 +74,21 @@ History<Frame>::History() : m_blacklistedCluster(Common::InvalidClusterNo)
 }
 
 template <class Frame>
-void History<Frame>::addFrame(const Frame &frame)
+bool History<Frame>::addFrame(const Frame &frame)
 {
-    m_undoLine.push_back(frame);
-    m_undoLine.back().setFail(false);
-    m_blacklistedCluster = Common::InvalidClusterNo;
-}
+    if (frame.isFail()) {
+        if (m_undoLine.size()>0 && m_undoLine.back().isFail())
+            return false;
 
-template <class Frame>
-bool History<Frame>::addFailedFrame(const Frame &frame)
-{
-    if (m_undoLine.size()>0 && m_undoLine.back().isFail())
-        return false;
+        m_undoLine.push_back(frame);
 
-    m_undoLine.push_back(frame);
-    m_undoLine.back().setFail();
+    } else {
+        m_undoLine.push_back(frame);
+        m_blacklistedCluster = Common::InvalidClusterNo;
+
+    }
     return true;
+
 }
 
 template <class Frame>
@@ -122,7 +120,7 @@ void History<Frame>::selectFrame(int at)
         }
     }
     if (itr->isFail()) {
-        itr->setFail(false);
+        itr->restoreCheckOk();
 
     } else {
         auto nextitr = itr;

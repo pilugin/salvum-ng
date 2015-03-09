@@ -7,7 +7,5 @@ void F()
     History<BaseFrame> h;
 
     h.addFrame(BaseFrame());
-    h.addFailedFrame(BaseFrame());
-    h.addFailedFrame(BaseFrame());
     h.addFrame(BaseFrame());
 }
