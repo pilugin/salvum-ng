@@ -13,7 +13,7 @@ SynchroMem<T, NMutexes, NConds> *SynchroMem<T, NMutexes, NConds>::create(const c
     if (fd_sync < 0)
         return nullptr;
 
-    if (size == -1 || size < sizeof(T))
+    if (size == -1 || size < (int)sizeof(T))
         size = sizeof(SynchroMem<T, NMutexes, NConds>);
     else
         size = size + sizeof(SynchroMem<T, NMutexes, NConds>) - sizeof(T);
