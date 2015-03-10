@@ -1,9 +1,11 @@
 // included from ../ipc.h to hide implementation of the template
 
+#include <sys/stat.h>
+
 namespace IPC {
 
 template <class T, int NMutexes, int NConds>
-SynchroMem<T, NMutexes, NConds> *SynchroMem<T, NMutexes, NConds>::create(const char *name)
+SynchroMem<T, NMutexes, NConds> *SynchroMem<T, NMutexes, NConds>::create(const char *name, int size)
 {
     SynchroMem<T, NMutexes, NConds> *res = 0;
 
@@ -11,11 +13,16 @@ SynchroMem<T, NMutexes, NConds> *SynchroMem<T, NMutexes, NConds>::create(const c
     if (fd_sync < 0)
         return nullptr;
 
-    int rv = ftruncate(fd_sync, sizeof(SynchroMem<T, NMutexes, NConds>));    
+    if (size == -1)
+        size = sizeof(SynchroMem<T, NMutexes, NConds>);
+    else
+        size = size + sizeof(SynchroMem<T, NMutexes, NConds>) - sizeof(T);
+
+    int rv = ftruncate(fd_sync, size);
     if (rv == -1)
         return nullptr;
 
-    void* addr_sync = mmap(0, sizeof(SynchroMem<T, NMutexes, NConds>), PROT_READ|PROT_WRITE, MAP_SHARED, fd_sync, 0);
+    void* addr_sync = mmap(0, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd_sync, 0);
     if (addr_sync == MAP_FAILED)
         return nullptr;
 
@@ -36,7 +43,9 @@ SynchroMem<T, NMutexes, NConds> *SynchroMem<T, NMutexes, NConds>::attach(const c
     if (fd_sync < 0)
         return nullptr;
 
-    void* addr_sync = mmap(0, sizeof(SynchroMem<T, NMutexes, NConds>), PROT_READ|PROT_WRITE, MAP_SHARED, fd_sync, 0);
+    struct stat st;
+    int size = fstat(fd_sync, &st)==0 ? st.st_size : sizeof(SynchroMem<T, NMutexes, NConds>);
+    void* addr_sync = mmap(0, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd_sync, 0);
     if (addr_sync == MAP_FAILED)
         return nullptr;
 

@@ -52,13 +52,13 @@ private:
 
 
 template <class T, int NMutexes=0, int NConds=0>
-class SynchroMem: public T, public Mutexes<NMutexes>, public Conds<NConds>
+class SynchroMem: public Mutexes<NMutexes>, public Conds<NConds>, public T
 {
 //    static_assert( std::is_pod<T>::value, "SynchroMem<T>: T must be a POD type" );
     static_assert( !std::is_polymorphic<T>::value, "SynchroMem<T>: T must be a non-polymorphic type");
 public:
 
-    static SynchroMem<T, NMutexes, NConds> *create(const char *name);
+    static SynchroMem<T, NMutexes, NConds> *create(const char *name, int size=-1);
     static SynchroMem<T, NMutexes, NConds> *attach(const char *name);
 
     static void destroy(SynchroMem<T, NMutexes, NConds> *mem, const char *name);
