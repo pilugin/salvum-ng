@@ -15,6 +15,11 @@ BaseFrame::BaseFrame(const BaseFrame &other)
     *this = other;
 }
 
+BaseFrame::~BaseFrame()
+{
+
+}
+
 BaseFrame &BaseFrame::operator =(const BaseFrame &other)
 {
     mInitOk = other.mInitOk;

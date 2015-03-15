@@ -8,7 +8,8 @@
 
 namespace Common {
 
-enum { InvalidClusterNo =-1 };
+enum { InvalidClusterNo =-1,
+       ClusterSize      =4096 };
 
 typedef QPair<int, QByteArray> Cluster;
 

@@ -5,6 +5,9 @@
 #include <type_traits>
 
 #include <QtCore/QList>
+#include <QtCore/QDir>
+#include <QtCore/QFile>
+#include <QtDebug>
 
 namespace Core {
 
@@ -13,6 +16,7 @@ class BaseFrame
 public:
     BaseFrame();
     BaseFrame(const BaseFrame &other);
+    virtual ~BaseFrame();
 
     BaseFrame &operator= (const BaseFrame &other);
 
@@ -34,6 +38,8 @@ public:
     QPair<const char *, int> bufferRead(int len);
     int bufferBytesLeft() const;
 
+    virtual bool save(const QString &destPath) const;
+    virtual bool load(const QString &sourcePath, const Common::Cluster &cluster);
 protected:
 
 private:
@@ -61,11 +67,15 @@ public:
 
     int blacklistedCluster() const { return m_blacklistedCluster; }
 
+    bool save(const QDir &dest) const;
+    bool load(const QDir &source);
 private:
     QList<Frame> m_undoLine;
     int m_blacklistedCluster;
 };
 
+//////////////////////////////////////////////
+/// History<Frame> implementation
 //////////////////////////////////////////////
 
 template <class Frame>
@@ -133,6 +143,123 @@ void History<Frame>::selectFrame(int at)
     m_undoLine.erase(++itr, m_undoLine.end());
 }
 
+template <class Frame>
+bool History<Frame>::save(const QDir &dest) const
+{
+    QFile clustersF(    dest.path() + "/clusters");
+    QFile clusterNumsF( dest.path() + "/clusters.txt");
+    QFile infoF(        dest.path() + "/info.txt");
+
+    if (!dest.exists() &&  !QDir::mkpath( dest.absolutePath() ) ) {
+        qDebug()<<"Failed to create dir:"<<dest.absolutePath();
+        return false;
+    }
+    if (!clustersF.open(QFile::WriteOnly | QFile::Truncate) ) {
+        qDebug()<<"Failed to create/open file:"<<clustersF.fileName();
+        return false;
+    }
+    if (!clusterNumsF.open(QFile::WriteOnly | QFile::Truncate | QFile::Text) ) {
+        qDebug()<<"Failed to create/open file:"<<clusterNumsF.fileName();
+        return false;
+    }
+    if (!infoF.open(QFile::WriteOnly | QFile::Truncate | QFile::Text) ) {
+        qDebug()<<"Failed to create/open file:"<<infoF.fileName();
+        return false;
+    }
+    QDir framesD(dest.path() + "/frames");
+    if (!framesD.exists() && !QDir::mkpath( framesD.absolutePath() )) {
+        qDebug()<<"Failed to create dir:"<<framesD.absolutePath();
+        return false;
+    }
+
+    for (const Frame &fr : m_undoLine) {
+        QString num;
+        num.sprintf("%08X", fr.cluster().first);
+        if (!fr.save(framesD.path() + "/" + num)) {
+            qDebug()<<"Failed to save frame:"<<(framesD.path() + "/" + num);
+            return false;
+        }
+        clustersF.write(fr.cluster().second);
+        clusterNumsF.write(num.toLatin1());
+        if (fr.isFail())
+            clusterNumsF.write("-");
+        clusterNumsF.write("\n");
+    }
+    infoF.write(QString().sprintf("blacklisted:%08X\n", m_blacklistedCluster).toLatin1());
+
+    return true;
+}
+
+template <class Frame>
+bool History<Frame>::load(const QDir &source)
+{
+    QFile clustersF(    source.path() + "/clusters");
+    QFile clusterNumsF( source.path() + "/clusters.txt");
+    QFile infoF(        source.path() + "/info.txt");
+
+    if (!clustersF.open(QFile::ReadOnly) ) {
+        qDebug()<<"Failed to open file:"<<clustersF.fileName();
+        return false;
+    }
+    if (!clusterNumsF.open(QFile::ReadOnly | QFile::Text) ) {
+        qDebug()<<"Failed to open file:"<<clusterNumsF.fileName();
+        return false;
+    }
+    if (!infoF.open(QFile::ReadOnly | QFile::Text) ) {
+        qDebug()<<"Failed to open file:"<<infoF.fileName();
+        return false;
+    }
+
+    const char *blacklisted = "blacklisted:";
+    while (!infoF.atEnd()) {
+        QByteArray line = infoF.readLine();
+        if (line.startsWith(blacklisted)) {
+            QByteArray num = line.constData() + strlen(blacklisted);
+            bool ok;
+            m_blacklistedCluster = num.toInt(&ok, 16);
+            if (!ok) {
+                qDebug()<<"Failed to parse line: "<<line;
+                return false;
+            }
+        }
+    }
+
+    QDir framesD(source.path() + "/frames");
+    while (!clusterNumsF.atEnd()) {
+        QByteArray line = clusterNumsF.readLine();
+        if (line.endsWith('\n'))
+            line.resize(line.size()-1);
+        if (line.size() == 0)
+            continue;
+        bool isFail = false;
+        if (line.endsWith('-')) {
+            isFail = true;
+            line.resize(line.size()-1);
+        }
+        bool ok;
+        Common::Cluster cluster;
+        cluster.first = line.toInt(&ok, 16);
+        if (!ok) {
+            qDebug()<<"Failed to parse clusterNo: "<<line;
+            return false;
+        }
+        cluster.second = clustersF.read(Common::ClusterSize);
+        if (cluster.second.size() != Common::ClusterSize) {
+            qDebug()<<"Failed to read full cluster: (no,size)="<<cluster.first<<cluster.second.size();
+            return false;
+        }
+
+        m_undoLine.push_back(Frame());
+        QString numFrame;
+        numFrame.sprintf("/%08X", cluster.first);
+        if (!m_undoLine.back().load(framesD.path() + numFrame, cluster)) {
+            qDebug()<<"Failed to load frame: "<<(framesD.path() + numFrame);
+            return false;
+        }
+    }
+
+    return true;
+}
 
 }
 
