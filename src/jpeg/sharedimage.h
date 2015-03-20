@@ -2,7 +2,7 @@
 #define SHARED_IMAGE_HPP
 
 #include <memory>
-#include <QVector>
+#include <util/array.h>
 #include <QMap>
 #include <QSize>
 #include <QPoint>
@@ -11,93 +11,92 @@ namespace Jpeg {
 
 struct Block
 {
-    enum { NUM_COLS = 8, NUM_ROWS = 8 };
-    unsigned int *lines[NUM_ROWS];
+    enum Nums { NUM_COLS = 8, NUM_ROWS = 8 };
+    unsigned int *line;
+    int rowOffset;
 
-    bool isNull() const { return lines[0] == nullptr; }
+    bool isNull() const { return line == nullptr; }    
+    unsigned int *operator[](int row) { return line + NUM_COLS; }
 
-    Block(const Block &other);
     Block();
-    Block &operator= (const Block &other);
 };
 
 struct ConstBlock
 {
-    const unsigned int *lines[Block::NUM_ROWS];
-    bool isNull() const { return lines[0] == nullptr; }
+    typedef Block::Nums Nums;
+
+    const unsigned int *line;
+    unsigned int rowOffset;
+    
+    bool isNull() const { return line == nullptr; }
+    const unsigned int *operator[](int row) const { return line + rowOffset*row; }
 };
 
 struct ConstBlocks : public ConstBlock
 {
     int span;
     bool ripped;
+    int nextBlockOffset; //< block offset for next blocks portion (used if ripped=true), counts from beginning of ImagePart
 };
 
-class ImagePart;
-
-class Image
-{
-public:
-    enum { INV_BAD_PART_ID = 0 };
-
-    Image();
-
-    std::shared_ptr<ImagePart> createPart();
-
-    ConstBlocks getBlocks(int offset, int count, int badId = INV_BAD_PART_ID) const;
-    Block getWritableBlock();
-
-    bool atEnd() const;
-    int blocksPerRow() const;
-    int blocksPerCol() const;
-
-    int createBadPart(int offset, int count);
-    void dropBadPart(int badPartId);
-    void moveBadPartBack(int badPartId);
-
-    void init(int width, int height);
-
-    QPoint getBlockCoordinates(int offset) const;
-    QSize getSize() const { return mSize; }
-
-    const unsigned int *scanline(int num) const { return mData.data() + num * mSize.width(); }
-private:
-    QSize mSize;
-    QVector< unsigned int > mData;
-    int mCurrentWritableBlock;
-
-    struct BadPart
-    {
-        BadPart();
-        int id;
-        QVector< unsigned int > scanlines;
-    };
-    QVector< BadPart > mBadParts;
-    int mBadIdGen;
-
-
-    unsigned int *pointerByCoordinate(const QPoint &coordinate, int blockRow);
-    const unsigned int *pointerByCoordinate(const QPoint &coordinate, int blockRow) const;
-};
+class SharedImage;
 
 class ImagePart
 {
 public:
-    bool isBad() const { return mBadPartId != Image::INV_BAD_PART_ID; }
+    ImagePart(SharedImage *image, int offset, int count =0);
 
-    ConstBlocks getBlocks(int portion =0) const;
+    bool isBad() const { return mBadOffset > 0; }
+
+    ConstBlocks getBlocks(int blocksOffset =0) const;
 
     Block addWritableBlock();
 
-    void setBad();
+    bool setBad(); //< return false if SharedImage is lack of free space
     void setGoodAgain();
 
 private:
-    std::shared_ptr< Image > mImage;
+    SharedImage *mImage;
     int mOffset;
     int mCount;
+    int mBadOffset;
+};
 
-    int mBadPartId;
+class SharedImage
+{
+public:
+    SharedImage(int width, int height, int badSectorPercentRatio =10);
+
+    ImagePart createPart();
+
+    ConstBlocks getBlocks(int offset, int count) const;
+    Block getWritableBlock();
+
+    int totalBlockCount() const;
+    bool atEnd() const;
+    int blocksInRow() const;
+    int blocksInCol() const;
+
+    int createBadPart(int goodOffset, int count); //< returns offset
+    void moveBadPartBack(int badOffset, int count, int goodOffset);
+    void removeBadParts();
+
+    QPoint getBlockCoordinates(int offset) const;
+    QSize getSize() const { return mSize; }
+    
+    int getBadSectorSize() const; //< these 3 functions return size in Blocks 
+    int getBadSectorUsed() const;
+    int getBadSectorFree() const { return getBadSectorSize() - getBadSectorUsed(); }
+
+    const unsigned int *scanline(int num) const { return mData.data() + num * mSize.width(); }
+private:
+    unsigned int *pointerByCoordinate(const QPoint &coordinate, int blockRow);
+    const unsigned int *pointerByCoordinate(const QPoint &coordinate, int blockRow) const;
+
+    QSize mSize;
+    int mCurrentWritableBlock;
+    int mCurrentBadBlock;
+    DynArray<unsigned int> mData;
 };
 
 }
@@ -105,7 +104,7 @@ private:
 #ifdef QT_GUI_LIB
 #include <QtGui/QImage>
 namespace Jpeg {
-    QImage toQImage(const Image &img);
+    QImage toQImage(const SharedImage &img);
 }
 #endif
 

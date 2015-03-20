@@ -1,98 +1,130 @@
 #include <sharedimage.h>
 #include <QColor>
 
+#if 0
+
 namespace Jpeg
 {
 
-struct InvalidBlock : public Block {
-    InvalidBlock() {
-        for (uint i=0; i<sizeof(lines)/sizeof(lines[0]); ++i)
-            lines[i] = nullptr;
-    }
-};
-
-struct InvalidConstBlock : public ConstBlocks {
-    InvalidConstBlock() {
-        for (uint i=0; i<sizeof(lines)/sizeof(lines[0]); ++i)
-            lines[i] = nullptr;
-        ripped = false;
-        span = 0;
-    }
-};
-
-static const InvalidBlock invalidBlock;
-static const InvalidConstBlock invalidConstBlocks;
-
-
-Image::Image()
-: mCurrentWritableBlock(0)
-, mBadIdGen(INV_BAD_PART_ID)
+ImagePart::ImagePart(SharedImage *image, int offset, int count)
+: mImage(image)
+, mOffset(offset)
+, mCount(count)
+, mBadOffset(0)
 {
 }
 
-ConstBlocks Image::getBlocks(int offset, int count, int badId) const
+ConstBlocks ImagePart::getBlocks(int blocksOffset) const
 {
-    if (badId == INV_BAD_PART_ID) {
-        ConstBlocks bs;
-        QPoint c = getBlockCoordinates(offset);
-        for (int i=0; i<Block::NUM_ROWS; ++i)
-            bs.lines[i] = pointerByCoordinate(c, i);
+    return mImage->getBlocks( (isBad() ? mBadOffset : mOffset) + blocksOffset, mCount);
+}
 
-        bs.span = qMin(count, blocksPerRow() - c.x() );
-        bs.ripped = count > bs.span;
+Block ImagePart::getWritableBlock() 
+{
+    Block res = mImage->getWritableBlock()
+    if (!res.isNull())
+        ++mCount;
+        
+    return res;
+}
 
+void ImagePart::setBad()
+{
+    mOffset = mImage->createBadPart( mOffset, mCount );
+}
+
+void ImagePart::setGoodAgain()
+{
+    if (isBad()) {
+        mImage->moveBadPartBack(mBadOffset, mCount, mOffset);
+        mBadOffset = 0;
+    }
+}
+
+/////////////////////////////////////////////////////
+
+SharedImage::SharedImage(int width, int height, int badSectorRatio)
+: mSize(width, height)
+, mCurrentWritableBlock(0)
+, mData(width * ((height * (100+badSectorRatio)) /100)  ) //< width * (height+10%)
+{
+    mCurrentBadBlock = totalBlockCount();
+}
+
+ImagePart SharedImage::createPart()
+{
+    return ImagePart(this, mCurrentWritableBlock);
+}
+
+ConstBlocks SharedImage::getBlocks(int offset, int count) const
+{    
+    ConstBlocks bs;
+
+    QPoint c = getBlockCoordinates(offset);
+    if (c.x() < 0)
         return bs;
+    bs.line = pointerByCoordinate(c, 0);
+    bs.rowOffset = blocksInRow() * Block::NUM_COLS;
+    bs.span = qMin(count, blocksInRow() - (offset/Block::NUM_COLS)%blocksInRow() );
+    bs.ripped = count > bs.span;
 
-    } else {
-        return invalidConstBlocks;
-
-    }
+    return bs;
 }
 
-Block Image::getWritableBlock()
+Block SharedImage::getWritableBlock()
 {
+    Block b;
     if (atEnd())
-        return invalidBlock;
+        return b;
+        
     QPoint c = getBlockCoordinates(mCurrentWritableBlock ++);
     if (c.x() < 0)
-        return invalidBlock;
-    Block b;
-    for (int i=0; i<Block::NUM_ROWS; ++i) {
-        b.lines[i] = pointerByCoordinate(c, i);
-    }
+        return b;
+    b.line = pointerByCoordinate(c, 0);
+    b.rowOffset = blocksInRow() * Block::NUM_COLS;
+    
     return b;
 }
 
-bool Image::atEnd() const
+bool SharedImage::atEnd() const
 {
-    return mCurrentWritableBlock == mSize.width() * mSize.height() / Block::NUM_COLS / Block::NUM_ROWS;
+    return mCurrentWritableBlock >= totalBlockCount();
 }
 
-int Image::blocksPerRow() const
+int SharedImage::totalBlockCount() const
 {
-    return mSize.width() / Block::NUM_ROWS;
+    return blocksInRow() * blocksInCol();
 }
 
-int Image::blocksPerCol() const
+int SharedImage::blocksInRow() const
 {
-    return mSize.height() / Block::NUM_COLS;
+    return mSize.width() / Block::NUM_COLS;
 }
 
-Image::BadPart::BadPart()
+int SharedImage::blocksInCol() const
 {
-    scanlines.resize(Block::NUM_ROWS);
+    return mSize.height() / Block::NUM_ROWS;
 }
 
-int Image::createBadPart(int offset, int count)
+int SharedImage::getBadSectorSize() const
 {
-    int badId = ++mBadIdGen;
+    return (mData.capacity() / (Block::NUM_ROWS * Block::NUM_COLS)) - totalBlockCount();
+}
 
-    BadPart badPart;
-    // copy using getBlocks
+int SharedImage::getBadSectorUsed() const
+{
+    return mCurrentBadBlock - totalBlockCount();
+}
 
-    mBadParts.insert( badId, badPart );
-
-    return badId;
+int SharedImage::createBadPart(int offset, int count)
+{
+    if (count <= getBadSectorFree()) {
+        
+        // copy
+    
+    } else {
+        return -1;
+    }    
 }
 
 void Image::dropBadPart(int badPartId)
@@ -108,11 +140,6 @@ void Image::moveBadPartBack(int badPartId)
 //    }
 }
 
-void Image::init(int width, int height)
-{
-    mSize = QSize(width, height);
-    mData = QVector<unsigned int>( height*width, 0 );
-}
 
 QPoint Image::getBlockCoordinates(int offset) const
 {
@@ -139,7 +166,7 @@ const unsigned int *Image::pointerByCoordinate(const QPoint &c, int i) const
 
 
 #ifdef QT_GUI_LIB
-QImage toQImage(const Image &img)
+QImage toQImage(const SharedImage &img)
 {
     QImage res(img.getSize(), QImage::Format_ARGB32);
     for (int line=0; line<img.getSize().height(); ++line) {
@@ -152,21 +179,11 @@ QImage toQImage(const Image &img)
 }
 #endif
 
-Block::Block(const Block &other)
-{
-    *this = other;
-}
-
 Block::Block()
 {
-    *this = invalidBlock;
-}
-
-Block &Block::operator=(const Block &other)
-{
-    for (int i=0; i<NUM_COLS; ++i)
-        lines[i] = other.lines[i];
-    return *this;
+    line = nullptr;
 }
 
 }
+
+#endif
