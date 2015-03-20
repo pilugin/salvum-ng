@@ -1,5 +1,7 @@
 
 TEMPLATE = subdirs
-SUBDIRS = picojpeg src
+SUBDIRS = picojpeg src tests
 
 src.depends = picojpeg
+tests.depends = src
+

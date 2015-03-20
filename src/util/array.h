@@ -13,9 +13,9 @@ class Array
 {
 //    static_assert(std::is_pod<T>::value, "Array<T>: T must be a POD type");
 public:
-    Array() : mSize(0) {}
-
-    static int capacity() { return N; }
+    Array(int capacity =N) : mSize(0), mCapacity(capacity) {}
+    
+    int capacity() { return mCapacity; }
 
     int size() const { return mSize; }
     bool empty() const { return mSize == 0; }
@@ -23,12 +23,12 @@ public:
     void clear() { mSize=0; }
     void push_back(const T &item)
     {
-        assert(mSize < N);
+        assert(mSize < mCapacity);
         mData[mSize++] = item;
     }    
     void push_back_empty()
     {
-        assert(mSize < N);
+        assert(mSize < mCapacity);
         ++mSize;
     }
     T &back() 
@@ -60,14 +60,29 @@ public:
     const T *data() const { return mData; }
     void set(const T *data, int size)
     {
-        assert(size <= N);
+        assert(size <= mCapacity);
         mSize = size;
         memcpy(mData, data, size * sizeof(T) );
     }
+    void resize(int size)
+    {
+        assert(size <= mCapacity);
+        mSize = size;
+    }
 
 protected:
-    volatile int mSize;
+    int mSize;
+    int mCapacity;
     T mData[N];
+};
+
+////
+
+template <class T>
+class DynArray : public Array<T, 0>
+{
+public:
+    DynArray(int capacity) : Array<T, 0>(capacity) {}
 };
 
 ////
