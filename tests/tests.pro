@@ -1,2 +1,2 @@
 TEMPLATE = subdirs
-SUBDIRS = ipc
+SUBDIRS = ipc jpeg

@@ -140,6 +140,7 @@ int SharedImage::createBadPart(int offset, int count)
         copyBlocks( offset, mCurrentBadBlock, count);
         int rv = mCurrentBadBlock;
         mCurrentBadBlock += count;
+        mCurrentWritableBlock = offset;
         return rv;
 
     } else {
@@ -155,6 +156,7 @@ void SharedImage::dropBadParts()
 void SharedImage::moveBadPartBack(int badOffset, int count, int goodOffset)
 {
     copyBlocks( badOffset, goodOffset, count );
+    mCurrentWritableBlock = goodOffset + count;
 }
 
 
