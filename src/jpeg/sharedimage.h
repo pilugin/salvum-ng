@@ -79,7 +79,7 @@ public:
 
     int createBadPart(int goodOffset, int count); //< returns offset
     void moveBadPartBack(int badOffset, int count, int goodOffset);
-    void removeBadParts();
+    void dropBadParts();
 
     QPoint getBlockCoordinates(int offset) const;
     QSize getSize() const { return mSize; }
@@ -90,6 +90,7 @@ public:
 
     const unsigned int *scanline(int num) const { return mData.data() + num * mSize.width(); }
 private:
+    void copyBlocks(int srcOffset, int dstOffset, int count);
     unsigned int *pointerByCoordinate(const QPoint &coordinate, int blockRow);
     const unsigned int *pointerByCoordinate(const QPoint &coordinate, int blockRow) const;
 

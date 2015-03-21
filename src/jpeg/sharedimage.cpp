@@ -116,28 +116,45 @@ int SharedImage::getBadSectorUsed() const
     return mCurrentBadBlock - totalBlockCount();
 }
 
+void SharedImage::copyBlocks(int srcOffset, int dstOffset, int count)
+{
+    int copied = 0;
+    while ((count - copied) > 0) {
+        QPoint srcC = getBlockCoordinates(srcOffset + copied);
+        QPoint dstC = getBlockCoordinates(dstOffset + copied);
+        int srcSpan = qMin(blocksInRow() - srcC.x(), (count - copied));
+        int dstSpan = blocksInRow() - dstC.x();
+        int span = qMin(srcSpan, dstSpan);
+
+        for (int y=0; y<Block::NUM_ROWS; ++y) {
+            memcpy( pointerByCoordinate(dstC, y), pointerByCoordinate(srcC, y), span * sizeof(unsigned int) * Block::NUM_COLS );
+        }
+
+        copied += span;
+    }
+}
+
 int SharedImage::createBadPart(int offset, int count)
 {
     if (count <= getBadSectorFree()) {
-        
-        // copy
-    
+        copyBlocks( offset, mCurrentBadBlock, count);
+        int rv = mCurrentBadBlock;
+        mCurrentBadBlock += count;
+        return rv;
+
     } else {
         return -1;
-    }    
+    }
 }
 
-void Image::dropBadPart(int badPartId)
+void SharedImage::dropBadParts()
 {
-    mBadParts.remove(badPartId);
+    mCurrentBadBlock = totalBlockCount();
 }
 
-void Image::moveBadPartBack(int badPartId)
+void SharedImage::moveBadPartBack(int badOffset, int count, int goodOffset)
 {
-//    auto itr = mBadParts.find(badPartId);
-//    if (itr != mBadParts.end()) {
-        // copy using
-//    }
+    copyBlocks( badOffset, goodOffset, count );
 }
 
 
