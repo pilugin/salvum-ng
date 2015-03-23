@@ -112,6 +112,7 @@ bool BaseFrame::load(const QString &sourcePath, const Common::Cluster &cluster)
     mCheckOk = desc.contains('c');
 
     mBuffer.setData(buffF.readAll());
+    mCluster = cluster;
 
     return loadMore(sourcePath, descF);
 }

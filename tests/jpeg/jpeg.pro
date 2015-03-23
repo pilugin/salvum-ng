@@ -1,2 +1,2 @@
 TEMPLATE = subdirs
-SUBDIRS = sharedimage
+SUBDIRS = sharedimage pjpeg_serialize

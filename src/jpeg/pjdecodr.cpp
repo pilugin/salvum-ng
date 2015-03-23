@@ -63,4 +63,16 @@ unsigned char PjDecodr::fetchCallback(unsigned char *buf, unsigned char bufSize,
     return PJPG_NO_MORE_BLOCKS;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+bool PjFrame::saveMore(const QString &destPath, QFile &descFile) const
+{
+
+}
+
+bool PjFrame::loadMore(const QString &sourcePath, QFile &descFile)
+{
+
+}
+
 }

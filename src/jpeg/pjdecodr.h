@@ -12,6 +12,10 @@ class PjFrame : public Core::BaseFrame
 public:
     QByteArray pjpegCtxt;
     pjpeg_image_info_t pjpegImgInfo;
+    
+protected:
+    bool saveMore(const QString &destPath, QFile &descFile) const;
+    bool loadMore(const QString &sourcePath, QFile &descFile);
 };
 
 class PjDecodr : public Core::Decodr<PjFrame>, private Singleton<PjDecodr>

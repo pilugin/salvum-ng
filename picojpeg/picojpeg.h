@@ -124,6 +124,11 @@ extern const int pjpeg_ctxt_buffer_size;
 void pjpeg_save_ctxt(char *buf);
 void pjpeg_load_ctxt(const char *buf);
 
+extern const int pjpeg_serialize_buffer_size;
+void pjpeg_serialize_save(const pjpeg_image_info_t *i, const char *ctxt, char *buf);
+void pjpeg_serialize_load(const char *buf, pjpeg_image_info_t *i, char *ctxt, pjpeg_need_bytes_callback_t pNeedBytesCallback, void *pCallback_data);
+
+
 // Decompresses the file's next MCU. Returns 0 on success, PJPG_NO_MORE_BLOCKS if no more blocks are available, or an error code.
 // Must be called a total of m_MCUSPerRow*m_MCUSPerCol times to completely decompress the image.
 // Not thread safe.

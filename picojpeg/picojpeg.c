@@ -238,6 +238,51 @@ void pjpeg_load_ctxt(const char *buf)
     memcpy((void *)&gCtxt, buf, pjpeg_ctxt_buffer_size);
 }
 
+//#include <stdio.h>
+const int pjpeg_serialize_buffer_size = sizeof(gCtxt) + sizeof(pjpeg_image_info_t);
+void pjpeg_serialize_save(const pjpeg_image_info_t *i, const char *ctxt, char *buf)
+{
+    if (ctxt)
+        memcpy(buf, ctxt, pjpeg_ctxt_buffer_size);
+    else
+        pjpeg_save_ctxt(buf);
+
+    buf += pjpeg_ctxt_buffer_size;
+
+    pjpeg_image_info_t i2 = *i;
+    i2.m_pMCUBufR = 0;
+    i2.m_pMCUBufG = 0;
+    i2.m_pMCUBufB = 0;
+//    i2.m_pMCUBufR += gCtxt.gMCUBufR - i->m_pMCUBufR;
+//    i2.m_pMCUBufG += gCtxt.gMCUBufG - i->m_pMCUBufG;
+//    i2.m_pMCUBufB += gCtxt.gMCUBufB - i->m_pMCUBufB;
+    memcpy(buf, (void *)&i2, sizeof(i2));
+
+//    printf("PJPG %X %X %X\n", i2.m_pMCUBufR, i2.m_pMCUBufG, i2.m_pMCUBufB);
+}
+
+void pjpeg_serialize_load(const char *buf, pjpeg_image_info_t *i, char *ctxt, pjpeg_need_bytes_callback_t pNeedBytesCallback, void *pCallback_data)
+{
+    pjpeg_load_ctxt(buf);
+
+    buf += pjpeg_ctxt_buffer_size;
+    gCtxt.g_pNeedBytesCallback = pNeedBytesCallback;
+    gCtxt.g_pCallback_data = pCallback_data;
+
+    if (ctxt) {
+        pjpeg_save_ctxt(ctxt);
+    }
+
+    memcpy(i, buf, sizeof(pjpeg_image_info_t));
+//    union { void *ptr; int i; } r, g, b;
+//    r.ptr = i->m_pMCUBufR;
+//    g.ptr = i->m_pMCUBufG;
+//    b.ptr = i->m_pMCUBufB;
+    i->m_pMCUBufR = gCtxt.gMCUBufR ;//+ r.i;
+    i->m_pMCUBufG = gCtxt.gMCUBufG ;//+ g.i;
+    i->m_pMCUBufB = gCtxt.gMCUBufB ;//+ b.i;
+}
+
 //------------------------------------------------------------------------------
 static void fillInBuf(void)
 {

@@ -41,8 +41,8 @@ public:
     virtual bool save(const QString &destPath) const;
     virtual bool load(const QString &sourcePath, const Common::Cluster &cluster);
 protected:
-    bool saveMore(const QString &destPath, QFile &descFile) const;
-    bool loadMore(const QString &sourcePath, QFile &descFile);
+    virtual bool saveMore(const QString &destPath, QFile &descFile) const;
+    virtual bool loadMore(const QString &sourcePath, QFile &descFile);
 
 private:
     bool mInitOk;
