@@ -63,4 +63,9 @@ int Buffer::bytesLeft() const
     return isEmpty() ? 0 : mData.size() - mPos;
 }
 
+const char *Buffer::data() const
+{
+    return mData.data() + mPos;
+}
+
 }

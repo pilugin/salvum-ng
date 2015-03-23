@@ -36,6 +36,7 @@ public:
     QPair<const char *, int> read(int len);
     bool isEmpty() const;
     int bytesLeft() const;
+    const char *data() const;
 
 private:
     QByteArray mData;

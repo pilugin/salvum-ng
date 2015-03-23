@@ -1,8 +1,45 @@
-#include <jpeg/sharedimage>
-
+#include <jpeg/sharedimage.h>
+#include <QColor>
 #include <QtDebug>
 
 using namespace Jpeg;
+
+ImagePart good(SharedImage *i, int len, QColor c)
+{
+    ImagePart ip= i->createPart();
+    
+    while (len-- > 0) {        
+        Block b = ip.addWritableBlock();
+        
+//        qDebug("%p o=%d", b.line, b.rowOffset);
+        
+        for (int x=0; x<b.NUM_COLS; ++x)
+            for (int y=0; y<b.NUM_ROWS; ++y) {
+                if (y==0)
+                    if (x==0)
+                        b[y][x] = QColor(Qt::gray).rgba();
+                    else
+                        b[y][x] = QColor(Qt::red).rgba();
+                else
+                    b[y][x] = c.rgba();
+            }
+    }
+    
+    return ip;
+}
+
+ImagePart bad(SharedImage *i, int len, QColor c)
+{
+    ImagePart bad = good(i, len, c);
+    assert(bad.setBad());
+    
+    return bad;
+}
+
+void dropBad(SharedImage *i)
+{
+    i->dropBadParts();
+}
 
 int main()
 {
@@ -12,15 +49,21 @@ int main()
 
     SharedImage *si = new (buffer) SharedImage(x, y, 100);
     
-    // 1) create Part. Fill 6 blocks
+                    good(si, 4, Qt::white);
+                    good(si, 3, Qt::blue);
+    ImagePart b =   bad(si, 5, Qt::black);
+                    good(si, 3, Qt::white);
 
-    // 2) create Part. Fill 7 blocks. Make BAD
+                    good(si, 1, Qt::white).setBad();
+                    good(si, 1, Qt::green);
+                    
+    b.setGoodAgain();                    
+                    good(si, 3, Qt::yellow).setBad();
+                    good(si, 1, Qt::red);
 
-    // 3) create Part. Fill 5 blocks. Make BAD
-
-    // 4) restore Part (2)
-
-    // 5) create Part
+    si->dropBadParts();
+    
+    toQImage(*si).save("SAVED.png", "png");
 
     free(buffer);
 

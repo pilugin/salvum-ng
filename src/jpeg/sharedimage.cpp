@@ -1,7 +1,7 @@
-#include <sharedimage.h>
+#include <jpeg/sharedimage.h>
 #include <QColor>
 
-#if 0
+#if 1
 
 namespace Jpeg
 {
@@ -19,18 +19,19 @@ ConstBlocks ImagePart::getBlocks(int blocksOffset) const
     return mImage->getBlocks( (isBad() ? mBadOffset : mOffset) + blocksOffset, mCount);
 }
 
-Block ImagePart::getWritableBlock() 
+Block ImagePart::addWritableBlock() 
 {
-    Block res = mImage->getWritableBlock()
+    Block res = mImage->getWritableBlock();
     if (!res.isNull())
         ++mCount;
         
     return res;
 }
 
-void ImagePart::setBad()
+bool ImagePart::setBad()
 {
-    mOffset = mImage->createBadPart( mOffset, mCount );
+    mBadOffset = mImage->createBadPart( mOffset, mCount );
+    return mBadOffset >= 0;
 }
 
 void ImagePart::setGoodAgain()
@@ -160,7 +161,7 @@ void SharedImage::moveBadPartBack(int badOffset, int count, int goodOffset)
 }
 
 
-QPoint Image::getBlockCoordinates(int offset) const
+QPoint SharedImage::getBlockCoordinates(int offset) const
 {
     auto rv = QPoint( offset % (mSize.width()/Block::NUM_ROWS), offset / (mSize.width()/Block::NUM_ROWS) );
     if (rv.y() < mSize.height())
@@ -173,12 +174,12 @@ QPoint Image::getBlockCoordinates(int offset) const
 
 #define POINTER_BY_COORDINATE(c, i) mData.data() + (c.y() * Block::NUM_ROWS + i)*mSize.width() + c.x() * Block::NUM_COLS
 
-unsigned int *Image::pointerByCoordinate(const QPoint &c, int i)
+unsigned int *SharedImage::pointerByCoordinate(const QPoint &c, int i)
 {
     return POINTER_BY_COORDINATE(c, i);
 }
 
-const unsigned int *Image::pointerByCoordinate(const QPoint &c, int i) const
+const unsigned int *SharedImage::pointerByCoordinate(const QPoint &c, int i) const
 {
     return POINTER_BY_COORDINATE(c, i);
 }

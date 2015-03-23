@@ -15,7 +15,7 @@ class Array
 public:
     Array(int capacity =N) : mSize(0), mCapacity(capacity) {}
     
-    int capacity() { return mCapacity; }
+    int capacity() const { return mCapacity; }
 
     int size() const { return mSize; }
     bool empty() const { return mSize == 0; }

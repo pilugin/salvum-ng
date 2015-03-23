@@ -3,12 +3,17 @@
 ######################################################################
 
 TEMPLATE = app
-TARGET = 
+TARGET = sharedimage
 DEPENDPATH += .
 INCLUDEPATH += .
 
-include(../../src/util/util.pri)
-include(../../src/jpeg/jpeg.pri)
+include(../../../src/common/common.pri)
+include(../../../src/core/core.pri)
+include(../../../src/util/util.pri)
+include(../../../src/jpeg/jpeg.pri)
+
+LIBS += -L../../../picojpeg -lpicojpeg
+QT += gui
 
 # Input
 SOURCES += main.cpp

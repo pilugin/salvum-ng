@@ -16,7 +16,7 @@ struct Block
     int rowOffset;
 
     bool isNull() const { return line == nullptr; }    
-    unsigned int *operator[](int row) { return line + NUM_COLS; }
+    unsigned int *operator[](int row) { return line + row*rowOffset; }
 
     Block();
 };

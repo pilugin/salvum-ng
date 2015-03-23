@@ -41,6 +41,8 @@ public:
     virtual bool save(const QString &destPath) const;
     virtual bool load(const QString &sourcePath, const Common::Cluster &cluster);
 protected:
+    bool saveMore(const QString &destPath, QFile &descFile) const;
+    bool loadMore(const QString &sourcePath, QFile &descFile);
 
 private:
     bool mInitOk;
@@ -67,7 +69,7 @@ public:
 
     int blacklistedCluster() const { return m_blacklistedCluster; }
 
-    bool save(const QDir &dest) const;
+    bool save(const QDir &dest) const;    
     bool load(const QDir &source);
 private:
     QList<Frame> m_undoLine;
@@ -146,14 +148,15 @@ void History<Frame>::selectFrame(int at)
 template <class Frame>
 bool History<Frame>::save(const QDir &dest) const
 {
+    if (!dest.exists() &&  !QDir().mkpath( dest.absolutePath() ) ) {
+        qDebug()<<"Failed to create dir:"<<dest.absolutePath();
+        return false;
+    }
+
     QFile clustersF(    dest.path() + "/clusters");
     QFile clusterNumsF( dest.path() + "/clusters.txt");
     QFile infoF(        dest.path() + "/info.txt");
 
-    if (!dest.exists() &&  !QDir::mkpath( dest.absolutePath() ) ) {
-        qDebug()<<"Failed to create dir:"<<dest.absolutePath();
-        return false;
-    }
     if (!clustersF.open(QFile::WriteOnly | QFile::Truncate) ) {
         qDebug()<<"Failed to create/open file:"<<clustersF.fileName();
         return false;
