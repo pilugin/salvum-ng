@@ -5,9 +5,21 @@
 namespace Jpeg {
 
 
-PjDecodr::PjDecodr(SharedImage *image)
-: mImage(image)
+PjDecodr::PjDecodr(BaseSharedImageAllocator &alloc)
+: mImageAlloc(alloc)
+, mImage(nullptr)
 {
+}
+
+JpegScanType pjpegScanType2SalvumScanType( int pjpegScanType )
+{
+    switch (pjpegScanType) {
+    case PJPG_YH1V1: return H1V1;
+    case PJPG_YH2V2: return H2V2;
+    case PJPG_YH1V2: return H1V2;
+    case PJPG_YH2V1: return H2V1;
+    default:         return BAD_SCAN_TYPE;
+    }
 }
 
 void PjDecodr::doInit(PjFrame &frame)
@@ -19,12 +31,15 @@ void PjDecodr::doInit(PjFrame &frame)
 
     } else {
         frame.setInitialized();
-        // TODO: create new SharedImage and connect to frame object
+        mImage = mImageAlloc.alloc( pjpegScanType2SalvumScanType(frame.pjpegImgInfo.m_scanType), 
+                    frame.pjpegImgInfo.m_width, frame.pjpegImgInfo.m_height );
     }
 }
 
 void PjDecodr::doDecode(PjFrame &frame)
 {
+    frame.imagePart = mImage->createPart();
+
     static const int MAX_BLOCKS_PER_CLUSTER = 470;
     int blockCount = 0;
 
@@ -74,7 +89,7 @@ unsigned char PjDecodr::fetchCallback(unsigned char *buf, unsigned char bufSize,
 
 PjFrame::PjFrame()
 : pjpegCtxt( pjpeg_ctxt_buffer_size, '\0' )
-, imagePart( PjDecodr::instance()->image() )
+, imagePart( nullptr )
 {
 }
 
@@ -92,7 +107,7 @@ bool PjFrame::saveMore(const QString &destPath, QFile &descFile) const
     pjpegF.write(pjpegData);
     
     if ( imagePart.offset == 0 && imagePart.count > 0 ) { // first one. save the whole image
-        const SharedImage *i = imagePart.image();
+        const SharedImage *i = imagePart.image;
         descFile.write( QString().sprintf("image=%d/%dx%d/%d/%d/%d/%d\n",
                                     (int)i->getScanType(), i->getSize().width(), i->getSize().height(),
                                     i->getCurrentWritableBlock(), i->getCurrentBadBlock(), i->getBadSectorRatio(),
@@ -110,7 +125,8 @@ bool PjFrame::saveMore(const QString &destPath, QFile &descFile) const
             qDebug()<<"Failed to create symlink: "<<QDir(destPath).absolutePath();
         }
     }
-    descFile.write( QString().sprintf("imagePart=%d/%d/%d\n", imagePart.offset, imagePart.count, imagePart.badOffset).toLatin1() );
+    if (!imagePart.isNull())
+        descFile.write( QString().sprintf("imagePart=%d/%d/%d\n", imagePart.offset, imagePart.count, imagePart.badOffset).toLatin1() );
     
     return true;
 }

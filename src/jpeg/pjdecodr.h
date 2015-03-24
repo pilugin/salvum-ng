@@ -25,8 +25,7 @@ protected:
 class PjDecodr : public Core::Decodr<PjFrame>, public Singleton<PjDecodr> //< singleton is for picojpeg (it uses global vars)
 {
 public:
-    PjDecodr(SharedImage *image);
-    SharedImage *image() { return mImage; }
+    PjDecodr(BaseSharedImageAllocator &alloc);
     
     static unsigned char fetchCallback(unsigned char *buf, unsigned char bufSize, unsigned char *bytesRead, void *param);
 protected:
@@ -36,6 +35,7 @@ protected:
     unsigned char fetchCallback(unsigned char *buf, unsigned char bufSize, unsigned char *bytesRead);
         
 private:
+    BaseSharedImageAllocator &mImageAlloc;
     SharedImage *mImage;
 };
 

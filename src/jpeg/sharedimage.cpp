@@ -4,22 +4,22 @@
 namespace Jpeg
 {
 
-ImagePart::ImagePart(SharedImage *image, int offset_, int count_, int badOffset_)
+ImagePart::ImagePart(SharedImage *image_, int offset_, int count_, int badOffset_)
 : offset(offset_)
 , count(count_)
 , badOffset(badOffset_)
-, mImage(image)
+, image(image_)
 {
 }
 
 ConstBlocks ImagePart::getBlocks(int blocksOffset) const
 {
-    return mImage->getBlocks( (isBad() ? badOffset : offset) + blocksOffset, count);
+    return image->getBlocks( (isBad() ? badOffset : offset) + blocksOffset, count);
 }
 
 Block ImagePart::addWritableBlock() 
 {
-    Block res = mImage->getWritableBlock();
+    Block res = image->getWritableBlock();
     if (!res.isNull())
         ++count;
         
@@ -28,26 +28,26 @@ Block ImagePart::addWritableBlock()
 
 bool ImagePart::setBad()
 {
-    badOffset = mImage->createBadPart( offset, count );
+    badOffset = image->createBadPart( offset, count );
     return badOffset >= 0;
 }
 
 void ImagePart::setGoodAgain()
 {
     if (isBad()) {
-        mImage->moveBadPartBack(badOffset, count, offset);
+        image->moveBadPartBack(badOffset, count, offset);
         badOffset = 0;
     }
 }
 
 int ImagePart::blockWidth() const 
 {
-    return Block::numCols( mImage->getScanType() );
+    return Block::numCols( image->getScanType() );
 }
 
 int ImagePart::blockHeight() const
 {
-    return Block::numRows( mImage->getScanType() );
+    return Block::numRows( image->getScanType() );
 }
 
 bool ImagePart::addBlock(pjpeg_image_info_t *pjpegInfo)
@@ -57,11 +57,11 @@ bool ImagePart::addBlock(pjpeg_image_info_t *pjpegInfo)
         return false;
     
     copyPixels( block, 0, 8, 0, 8, pjpegInfo->m_pMCUBufR, pjpegInfo->m_pMCUBufG, pjpegInfo->m_pMCUBufB );    
-    if ( mImage->getScanType() & H2 )
+    if ( image->getScanType() & H2 )
         copyPixels( block, 8, 8, 0, 8, pjpegInfo->m_pMCUBufR +64, pjpegInfo->m_pMCUBufG +64, pjpegInfo->m_pMCUBufB +64 );
-    if ( mImage->getScanType() & V2 )
+    if ( image->getScanType() & V2 )
         copyPixels( block, 0, 8, 8, 8, pjpegInfo->m_pMCUBufR +128, pjpegInfo->m_pMCUBufG +128, pjpegInfo->m_pMCUBufB +128 );
-    if ( mImage->getScanType() == H2V2 )
+    if ( image->getScanType() == H2V2 )
         copyPixels( block, 8, 8, 8, 8, pjpegInfo->m_pMCUBufR +192, pjpegInfo->m_pMCUBufG +192, pjpegInfo->m_pMCUBufB +192 );
     return true;
 }
@@ -256,6 +256,13 @@ int Block::numCols(JpegScanType scanType)
         
     return 0;        
 }
+
+////////////////////////////////////////////////////////
+
+BaseSharedImageAllocator::~BaseSharedImageAllocator()
+{
+}
+
 
 }
 

@@ -71,7 +71,9 @@ public:
 
     bool save(const QDir &dest) const;    
     bool load(const QDir &source);
-private:
+protected:
+    virtual bool loadMore(const QDir &source) { return true; }
+
     QList<Frame> m_undoLine;
     int m_blacklistedCluster;
 };
@@ -261,7 +263,7 @@ bool History<Frame>::load(const QDir &source)
         }
     }
 
-    return true;
+    return loadMore(source);
 }
 
 }
