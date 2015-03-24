@@ -1,8 +1,6 @@
 #include <jpeg/sharedimage.h>
 #include <QColor>
 
-#if 1
-
 namespace Jpeg
 {
 
@@ -42,12 +40,53 @@ void ImagePart::setGoodAgain()
     }
 }
 
+int ImagePart::blockWidth() const 
+{
+    return Block::numCols( mImage->getScanType() );
+}
+
+int ImagePart::blockHeight() const
+{
+    return Block::numRows( mImage->getScanType() );
+}
+
+bool ImagePart::addBlock(pjpeg_image_info_t *pjpegInfo)
+{
+    Block block = addWritableBlock();
+    if (block.isNull())
+        return false;
+    
+    copyPixels( block, 0, 8, 0, 8, pjpegInfo->m_pMCUBufR, pjpegInfo->m_pMCUBufG, pjpegInfo->m_pMCUBufB );    
+    if ( mImage->getScanType() & H2 )
+        copyPixels( block, 8, 8, 0, 8, pjpegInfo->m_pMCUBufR +64, pjpegInfo->m_pMCUBufG +64, pjpegInfo->m_pMCUBufB +64 );
+    if ( mImage->getScanType() & V2 )
+        copyPixels( block, 0, 8, 8, 8, pjpegInfo->m_pMCUBufR +128, pjpegInfo->m_pMCUBufG +128, pjpegInfo->m_pMCUBufB +128 );
+    if ( mImage->getScanType() == H2V2 )
+        copyPixels( block, 8, 8, 8, 8, pjpegInfo->m_pMCUBufR +192, pjpegInfo->m_pMCUBufG +192, pjpegInfo->m_pMCUBufB +192 );
+    return true;
+}
+
+void ImagePart::copyPixels(Block &block, int x, int cx, int y, int cy, unsigned char *r, unsigned char *g, unsigned char *b)
+{
+    for (int iy=0; iy<cy; ++cy)
+        for (int ix=0; ix<cx; ++ix)
+            block.line(iy + y)[ix + x] = qRgb( *r++, *g++, *b++ );
+}
+
 /////////////////////////////////////////////////////
 
-SharedImage::SharedImage(int width, int height, int badSectorRatio)
-: mSize(width, height)
+static int intCeil(int v, int divisor)
+{
+    if ((v % divisor) ==0 )
+        return 0;
+    return ( v/divisor + 1) * divisor;
+}
+
+SharedImage::SharedImage(int width, int height, JpegScanType scanType, int badSectorRatio)
+: mScanType(scanType)
+, mSize(width, height)
 , mCurrentWritableBlock(0)
-, mData(width * ((height * (100+badSectorRatio)) /100)  ) //< width * (height+10%)
+, mData(intCeil(width, Block::numCols(scanType)) * (( intCeil(height, Block::numRows(scanType)) * (100+badSectorRatio)) /100)  ) //< width * (height+10%)
 {
     mCurrentBadBlock = totalBlockCount();
 }
@@ -64,9 +103,9 @@ ConstBlocks SharedImage::getBlocks(int offset, int count) const
     QPoint c = getBlockCoordinates(offset);
     if (c.x() < 0)
         return bs;
-    bs.line = pointerByCoordinate(c, 0);
-    bs.rowOffset = blocksInRow() * Block::NUM_COLS;
-    bs.span = qMin(count, blocksInRow() - (offset/Block::NUM_COLS)%blocksInRow() );
+    bs.linePtr = pointerByCoordinate(c, 0);
+    bs.rowOffset = blocksInRow() * Block::numCols(mScanType);
+    bs.span = qMin(count, blocksInRow() - (offset/Block::numCols(mScanType))%blocksInRow() );
     bs.ripped = count > bs.span;
 
     return bs;
@@ -81,8 +120,8 @@ Block SharedImage::getWritableBlock()
     QPoint c = getBlockCoordinates(mCurrentWritableBlock ++);
     if (c.x() < 0)
         return b;
-    b.line = pointerByCoordinate(c, 0);
-    b.rowOffset = blocksInRow() * Block::NUM_COLS;
+    b.linePtr = pointerByCoordinate(c, 0);
+    b.rowOffset = blocksInRow() * Block::numCols(mScanType);
     
     return b;
 }
@@ -99,17 +138,17 @@ int SharedImage::totalBlockCount() const
 
 int SharedImage::blocksInRow() const
 {
-    return mSize.width() / Block::NUM_COLS;
+    return mSize.width() / Block::numCols(mScanType);
 }
 
 int SharedImage::blocksInCol() const
 {
-    return mSize.height() / Block::NUM_ROWS;
+    return mSize.height() / Block::numRows(mScanType);
 }
 
 int SharedImage::getBadSectorSize() const
 {
-    return (mData.capacity() / (Block::NUM_ROWS * Block::NUM_COLS)) - totalBlockCount();
+    return (mData.capacity() / (Block::numRows(mScanType) * Block::numCols(mScanType) )) - totalBlockCount();
 }
 
 int SharedImage::getBadSectorUsed() const
@@ -127,8 +166,8 @@ void SharedImage::copyBlocks(int srcOffset, int dstOffset, int count)
         int dstSpan = blocksInRow() - dstC.x();
         int span = qMin(srcSpan, dstSpan);
 
-        for (int y=0; y<Block::NUM_ROWS; ++y) {
-            memcpy( pointerByCoordinate(dstC, y), pointerByCoordinate(srcC, y), span * sizeof(unsigned int) * Block::NUM_COLS );
+        for (int y=0; y<Block::numRows(mScanType); ++y) {
+            memcpy( pointerByCoordinate(dstC, y), pointerByCoordinate(srcC, y), span * sizeof(unsigned int) * Block::numCols(mScanType) );
         }
 
         copied += span;
@@ -163,25 +202,21 @@ void SharedImage::moveBadPartBack(int badOffset, int count, int goodOffset)
 
 QPoint SharedImage::getBlockCoordinates(int offset) const
 {
-    auto rv = QPoint( offset % (mSize.width()/Block::NUM_ROWS), offset / (mSize.width()/Block::NUM_ROWS) );
+    auto rv = QPoint( offset % (mSize.width()/Block::numRows(mScanType)), offset / (mSize.width()/Block::numRows(mScanType)) );
     if (rv.y() < mSize.height())
         return rv;
     else
         return QPoint(-1, -1);
 }
 
-
-
-#define POINTER_BY_COORDINATE(c, i) mData.data() + (c.y() * Block::NUM_ROWS + i)*mSize.width() + c.x() * Block::NUM_COLS
-
 unsigned int *SharedImage::pointerByCoordinate(const QPoint &c, int i)
 {
-    return POINTER_BY_COORDINATE(c, i);
+    return mData.data() + (c.y() * Block::numRows(mScanType) + i)*mSize.width() + c.x() * Block::numCols(mScanType);
 }
 
 const unsigned int *SharedImage::pointerByCoordinate(const QPoint &c, int i) const
 {
-    return POINTER_BY_COORDINATE(c, i);
+    return mData.data() + (c.y() * Block::numRows(mScanType) + i)*mSize.width() + c.x() * Block::numCols(mScanType);
 }
 
 
@@ -191,9 +226,6 @@ QImage toQImage(const SharedImage &img)
     QImage res(img.getSize(), QImage::Format_ARGB32);
     for (int line=0; line<img.getSize().height(); ++line) {
         memcpy(res.scanLine(line), img.scanline(line), img.getSize().width() * sizeof(unsigned int));
-
-//        for (int pixel=0; pixel<img.getSize().width(); ++pixel) res.setPixel(pixel, line, img.scanline(line)[pixel]);
-
     }
     return res;
 }
@@ -201,9 +233,28 @@ QImage toQImage(const SharedImage &img)
 
 Block::Block()
 {
-    line = nullptr;
+    linePtr = nullptr;
+}
+
+int Block::numRows(JpegScanType scanType)
+{
+    if ( scanType & V1 )
+        return 8;
+    else if ( scanType & V2 )
+        return 16;
+     
+    return 0;
+}
+
+int Block::numCols(JpegScanType scanType)
+{
+    if ( scanType & H1 )
+        return 8;
+    else if ( scanType & H2 )
+        return 16;
+        
+    return 0;        
 }
 
 }
 
-#endif

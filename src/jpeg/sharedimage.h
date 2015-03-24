@@ -1,35 +1,49 @@
 #ifndef SHARED_IMAGE_HPP
 #define SHARED_IMAGE_HPP
 
-#include <memory>
+#include <picojpeg.h>
 #include <util/array.h>
+#include <memory>
 #include <QMap>
 #include <QSize>
 #include <QPoint>
 
 namespace Jpeg {
 
+enum JpegScanType
+{
+    H1   = 0x01,
+    H2   = 0x02,
+    V1   = 0x10,
+    V2   = 0x20,
+    
+    H1V1 = H1 | V1,
+    H2V1 = H2 | V1,
+    H1V2 = H1 | V2,
+    H2V2 = H2 | V2
+};
+
 struct Block
 {
-    enum Nums { NUM_COLS = 8, NUM_ROWS = 8 };
-    unsigned int *line;
+    static int numCols(JpegScanType scanType);
+    static int numRows(JpegScanType scanType);
+    
+    unsigned int *linePtr;
     int rowOffset;
 
-    bool isNull() const { return line == nullptr; }    
-    unsigned int *operator[](int row) { return line + row*rowOffset; }
+    bool isNull() const { return linePtr == nullptr; }    
+    unsigned int *line(int row) { return linePtr + row*rowOffset; }
 
     Block();
 };
 
 struct ConstBlock
 {
-    typedef Block::Nums Nums;
-
-    const unsigned int *line;
+    const unsigned int *linePtr;
     unsigned int rowOffset;
     
-    bool isNull() const { return line == nullptr; }
-    const unsigned int *operator[](int row) const { return line + rowOffset*row; }
+    bool isNull() const { return linePtr == nullptr; }
+    const unsigned int *line(int row) const { return linePtr + rowOffset*row; }
 };
 
 struct ConstBlocks : public ConstBlock
@@ -51,11 +65,17 @@ public:
     ConstBlocks getBlocks(int blocksOffset =0) const;
 
     Block addWritableBlock();
+    bool addBlock(pjpeg_image_info_t *pjpegInfo);
 
     bool setBad(); //< return false if SharedImage is lack of free space
     void setGoodAgain();
+    
+    int blockWidth() const;
+    int blockHeight() const;
 
-private:
+private:    
+    void copyPixels(Block &block, int x, int cx, int y, int cy, unsigned char *r, unsigned char *g, unsigned char *b);
+
     SharedImage *mImage;
     int mOffset;
     int mCount;
@@ -65,7 +85,7 @@ private:
 class SharedImage
 {
 public:
-    SharedImage(int width, int height, int badSectorPercentRatio =10);
+    SharedImage(int width, int height, JpegScanType scanType, int badSectorPercentRatio =10);
 
     ImagePart createPart();
 
@@ -89,11 +109,13 @@ public:
     int getBadSectorFree() const { return getBadSectorSize() - getBadSectorUsed(); }
 
     const unsigned int *scanline(int num) const { return mData.data() + num * mSize.width(); }
+    JpegScanType getScanType() const { return mScanType; }
 private:
     void copyBlocks(int srcOffset, int dstOffset, int count);
     unsigned int *pointerByCoordinate(const QPoint &coordinate, int blockRow);
     const unsigned int *pointerByCoordinate(const QPoint &coordinate, int blockRow) const;
 
+    JpegScanType mScanType;
     QSize mSize;
     int mCurrentWritableBlock;
     int mCurrentBadBlock;

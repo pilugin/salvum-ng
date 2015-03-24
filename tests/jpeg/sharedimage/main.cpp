@@ -13,15 +13,15 @@ ImagePart good(SharedImage *i, int len, QColor c)
         
 //        qDebug("%p o=%d", b.line, b.rowOffset);
         
-        for (int x=0; x<b.NUM_COLS; ++x)
-            for (int y=0; y<b.NUM_ROWS; ++y) {
+        for (int x=0; x<ip.blockWidth(); ++x)
+            for (int y=0; y<ip.blockHeight(); ++y) {
                 if (y==0)
                     if (x==0)
-                        b[y][x] = QColor(Qt::gray).rgba();
+                        b.line(y)[x] = QColor(Qt::gray).rgba();
                     else
-                        b[y][x] = QColor(Qt::red).rgba();
+                        b.line(y)[x] = QColor(Qt::red).rgba();
                 else
-                    b[y][x] = c.rgba();
+                    b.line(y)[x] = c.rgba();
             }
     }
     
@@ -47,11 +47,11 @@ int main()
     int y=8  *4;
     void *buffer = malloc( sizeof(SharedImage) + 2*x*y*sizeof(unsigned int) );
 
-    SharedImage *si = new (buffer) SharedImage(x, y, 100);
+    SharedImage *si = new (buffer) SharedImage(x, y, H1V1, 100);
     
                     good(si, 4, Qt::white);
                     good(si, 3, Qt::blue);
-    ImagePart b =   bad(si, 5, Qt::black);
+    ImagePart b =   bad (si, 5, Qt::black);
                     good(si, 3, Qt::white);
 
                     good(si, 1, Qt::white).setBad();
