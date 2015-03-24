@@ -55,12 +55,13 @@ struct ConstBlocks : public ConstBlock
 
 class SharedImage;
 
-class ImagePart
+struct ImagePart
 {
-public:
-    ImagePart(SharedImage *image, int offset, int count =0);
+    ImagePart(SharedImage *image =nullptr, int offset =0, int count =0, int badOffset =0);
 
-    bool isBad() const { return mBadOffset > 0; }
+    bool isNull() const { return mImage == nullptr; }
+    bool isBad() const { return badOffset > 0; }
+    const SharedImage *image() const { return mImage; }
 
     ConstBlocks getBlocks(int blocksOffset =0) const;
 
@@ -73,19 +74,19 @@ public:
     int blockWidth() const;
     int blockHeight() const;
 
+    int offset;
+    int count;
+    int badOffset;
 private:    
     void copyPixels(Block &block, int x, int cx, int y, int cy, unsigned char *r, unsigned char *g, unsigned char *b);
 
     SharedImage *mImage;
-    int mOffset;
-    int mCount;
-    int mBadOffset;
 };
 
 class SharedImage
 {
 public:
-    SharedImage(int width, int height, JpegScanType scanType, int badSectorPercentRatio =10);
+    SharedImage(JpegScanType scanType, int width, int height, int badSectorPercentRatio =10);
 
     ImagePart createPart();
 
@@ -100,22 +101,30 @@ public:
     int createBadPart(int goodOffset, int count); //< returns offset
     void moveBadPartBack(int badOffset, int count, int goodOffset);
     void dropBadParts();
-
-    QPoint getBlockCoordinates(int offset) const;
-    QSize getSize() const { return mSize; }
-    
     int getBadSectorSize() const; //< these 3 functions return size in Blocks 
     int getBadSectorUsed() const;
     int getBadSectorFree() const { return getBadSectorSize() - getBadSectorUsed(); }
 
+    QPoint getBlockCoordinates(int offset) const;
     const unsigned int *scanline(int num) const { return mData.data() + num * mSize.width(); }
-    JpegScanType getScanType() const { return mScanType; }
+
+    // these used for save/load    
+    JpegScanType getScanType() const    { return mScanType; }
+    QSize getSize() const               { return mSize; }
+    int getCurrentWritableBlock() const { return mCurrentWritableBlock; }
+    int getCurrentBadBlock() const      { return mCurrentBadBlock; }
+    int getBadSectorRatio() const       { return mBadSectorRatio; }    
+    const char *getData() const         { return reinterpret_cast<const char *>(mData.data()); }
+    int         getDataSize() const     { return mData.capacity() * sizeof(unsigned int); }
+    bool load(const char *data, int size, int writableBlock, int badBlock);
+    
 private:
     void copyBlocks(int srcOffset, int dstOffset, int count);
     unsigned int *pointerByCoordinate(const QPoint &coordinate, int blockRow);
     const unsigned int *pointerByCoordinate(const QPoint &coordinate, int blockRow) const;
 
     JpegScanType mScanType;
+    int mBadSectorRatio;
     QSize mSize;
     int mCurrentWritableBlock;
     int mCurrentBadBlock;

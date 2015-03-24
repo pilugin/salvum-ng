@@ -47,7 +47,7 @@ int main()
     int y=8  *4;
     void *buffer = malloc( sizeof(SharedImage) + 2*x*y*sizeof(unsigned int) );
 
-    SharedImage *si = new (buffer) SharedImage(x, y, H1V1, 100);
+    SharedImage *si = new (buffer) SharedImage(H1V1, x, y, 100);
     
                     good(si, 4, Qt::white);
                     good(si, 3, Qt::blue);

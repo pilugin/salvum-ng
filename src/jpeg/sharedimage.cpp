@@ -4,39 +4,39 @@
 namespace Jpeg
 {
 
-ImagePart::ImagePart(SharedImage *image, int offset, int count)
-: mImage(image)
-, mOffset(offset)
-, mCount(count)
-, mBadOffset(0)
+ImagePart::ImagePart(SharedImage *image, int offset_, int count_, int badOffset_)
+: offset(offset_)
+, count(count_)
+, badOffset(badOffset_)
+, mImage(image)
 {
 }
 
 ConstBlocks ImagePart::getBlocks(int blocksOffset) const
 {
-    return mImage->getBlocks( (isBad() ? mBadOffset : mOffset) + blocksOffset, mCount);
+    return mImage->getBlocks( (isBad() ? badOffset : offset) + blocksOffset, count);
 }
 
 Block ImagePart::addWritableBlock() 
 {
     Block res = mImage->getWritableBlock();
     if (!res.isNull())
-        ++mCount;
+        ++count;
         
     return res;
 }
 
 bool ImagePart::setBad()
 {
-    mBadOffset = mImage->createBadPart( mOffset, mCount );
-    return mBadOffset >= 0;
+    badOffset = mImage->createBadPart( offset, count );
+    return badOffset >= 0;
 }
 
 void ImagePart::setGoodAgain()
 {
     if (isBad()) {
-        mImage->moveBadPartBack(mBadOffset, mCount, mOffset);
-        mBadOffset = 0;
+        mImage->moveBadPartBack(badOffset, count, offset);
+        badOffset = 0;
     }
 }
 
@@ -82,8 +82,9 @@ static int intCeil(int v, int divisor)
     return ( v/divisor + 1) * divisor;
 }
 
-SharedImage::SharedImage(int width, int height, JpegScanType scanType, int badSectorRatio)
+SharedImage::SharedImage(JpegScanType scanType, int width, int height, int badSectorRatio)
 : mScanType(scanType)
+, mBadSectorRatio(badSectorRatio)
 , mSize(width, height)
 , mCurrentWritableBlock(0)
 , mData(intCeil(width, Block::numCols(scanType)) * (( intCeil(height, Block::numRows(scanType)) * (100+badSectorRatio)) /100)  ) //< width * (height+10%)

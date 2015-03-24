@@ -1,32 +1,42 @@
 #ifndef JPEG_PJDECODR_H
 #define JPEG_PJDECODR_H
 
-#include <core/decodr.h>
 #include <picojpeg.h>
+#include <core/decodr.h>
 #include <util/singleton.h>
+#include <jpeg/sharedimage.h>
 
 namespace Jpeg {
 
 class PjFrame : public Core::BaseFrame
 {
 public:
+    PjFrame();
+
     QByteArray pjpegCtxt;
     pjpeg_image_info_t pjpegImgInfo;
+    ImagePart imagePart;
     
 protected:
     bool saveMore(const QString &destPath, QFile &descFile) const;
     bool loadMore(const QString &sourcePath, QFile &descFile);
 };
 
-class PjDecodr : public Core::Decodr<PjFrame>, private Singleton<PjDecodr>
+class PjDecodr : public Core::Decodr<PjFrame>, public Singleton<PjDecodr> //< singleton is for picojpeg (it uses global vars)
 {
 public:
+    PjDecodr(SharedImage *image);
+    SharedImage *image() { return mImage; }
+    
+    static unsigned char fetchCallback(unsigned char *buf, unsigned char bufSize, unsigned char *bytesRead, void *param);
 protected:
     void doInit(PjFrame &frame);
     void doDecode(PjFrame &frame);
 
-    static unsigned char fetchCallback(unsigned char *buf, unsigned char bufSize, unsigned char *bytesRead, void *param);
     unsigned char fetchCallback(unsigned char *buf, unsigned char bufSize, unsigned char *bytesRead);
+        
+private:
+    SharedImage *mImage;
 };
 
 }
