@@ -82,12 +82,25 @@ static int intCeil(int v, int divisor)
     return ( v/divisor + 1) * divisor;
 }
 
+int SharedImage::dataCapacity(JpegScanType scanType, int width, int height, int badSectorRatio)
+{
+    // width * (height+10%)
+    return  intCeil(width, Block::numCols(scanType)) 
+            * (  intCeil(height, Block::numRows(scanType)) 
+                * (100+badSectorRatio)    )/100;
+}
+
+int SharedImage::calculateSizeof(JpegScanType scanType, int width, int height, int badSectorRatio)
+{
+    return sizeof(SharedImage) + dataCapacity(scanType, width, height, badSectorRatio)*sizeof(unsigned int);
+}
+
 SharedImage::SharedImage(JpegScanType scanType, int width, int height, int badSectorRatio)
 : mScanType(scanType)
 , mBadSectorRatio(badSectorRatio)
 , mSize(width, height)
 , mCurrentWritableBlock(0)
-, mData(intCeil(width, Block::numCols(scanType)) * (( intCeil(height, Block::numRows(scanType)) * (100+badSectorRatio)) /100)  ) //< width * (height+10%)
+, mData( dataCapacity(scanType, width, height, badSectorRatio) ) 
 {
     mCurrentBadBlock = totalBlockCount();
 }

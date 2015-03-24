@@ -106,6 +106,7 @@ bool PjFrame::saveMore(const QString &destPath, QFile &descFile) const
     pjpeg_serialize_save( &pjpegImgInfo, pjpegCtxt.data(), pjpegData.data() );
     pjpegF.write(pjpegData);
     
+    /// @TODO: save by PjHistory
     if ( imagePart.offset == 0 && imagePart.count > 0 ) { // first one. save the whole image
         const SharedImage *i = imagePart.image;
         descFile.write( QString().sprintf("image=%d/%dx%d/%d/%d/%d/%d\n",

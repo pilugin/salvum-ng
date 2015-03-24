@@ -88,6 +88,7 @@ class SharedImage
 {
 public:
     SharedImage(JpegScanType scanType, int width, int height, int badSectorPercentRatio =10);
+    static int calculateSizeof(JpegScanType scanType, int width, int height, int badSectorPercentRatio =10);
 
     ImagePart createPart();
 
@@ -120,6 +121,7 @@ public:
     bool load(const char *data, int size, int writableBlock, int badBlock);
     
 private:
+    static int dataCapacity(JpegScanType scanType, int width, int height, int badSectorRatio);
     void copyBlocks(int srcOffset, int dstOffset, int count);
     unsigned int *pointerByCoordinate(const QPoint &coordinate, int blockRow);
     const unsigned int *pointerByCoordinate(const QPoint &coordinate, int blockRow) const;
