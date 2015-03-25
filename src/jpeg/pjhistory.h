@@ -6,17 +6,19 @@
 
 namespace Jpeg {
 
-class BaseSharedImageAllocator;
+class SharedImageAllocator;
 
 class PjHistory : public Core::History<PjFrame>
 {
 public:
-    PjHistory(BaseSharedImageAllocator &alloc);
+    PjHistory(SharedImageAllocator *alloc);
     
 protected:
     bool loadMore(const QDir &source);
 private:
-    BaseSharedImageAllocator &mImageAlloc;
+    SharedImageAllocator *mImageAlloc;
+
+    std::shared_ptr< SharedImage > mImage;
 };
 
 }

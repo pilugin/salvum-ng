@@ -5,9 +5,8 @@
 namespace Jpeg {
 
 
-PjDecodr::PjDecodr(BaseSharedImageAllocator &alloc)
+PjDecodr::PjDecodr(SharedImageAllocator *alloc)
 : mImageAlloc(alloc)
-, mImage(nullptr)
 {
 }
 
@@ -31,14 +30,15 @@ void PjDecodr::doInit(PjFrame &frame)
 
     } else {
         frame.setInitialized();
-        mImage = mImageAlloc.alloc( pjpegScanType2SalvumScanType(frame.pjpegImgInfo.m_scanType), 
-                    frame.pjpegImgInfo.m_width, frame.pjpegImgInfo.m_height );
+        mImage.reset( mImageAlloc->alloc(   pjpegScanType2SalvumScanType(frame.pjpegImgInfo.m_scanType),
+                                            frame.pjpegImgInfo.m_width, frame.pjpegImgInfo.m_height ),
+                      SharedImageDeleter(mImageAlloc)  );
     }
 }
 
 void PjDecodr::doDecode(PjFrame &frame)
 {
-    frame.imagePart = mImage->createPart();
+    frame.imagePart = mImage->createPart(mImage);
 
     static const int MAX_BLOCKS_PER_CLUSTER = 470;
     int blockCount = 0;
@@ -105,7 +105,8 @@ bool PjFrame::saveMore(const QString &destPath, QFile &descFile) const
     
     pjpeg_serialize_save( &pjpegImgInfo, pjpegCtxt.data(), pjpegData.data() );
     pjpegF.write(pjpegData);
-    
+
+/*
     /// @TODO: save by PjHistory
     if ( imagePart.offset == 0 && imagePart.count > 0 ) { // first one. save the whole image
         const SharedImage *i = imagePart.image;
@@ -126,6 +127,7 @@ bool PjFrame::saveMore(const QString &destPath, QFile &descFile) const
             qDebug()<<"Failed to create symlink: "<<QDir(destPath).absolutePath();
         }
     }
+*/
     if (!imagePart.isNull())
         descFile.write( QString().sprintf("imagePart=%d/%d/%d\n", imagePart.offset, imagePart.count, imagePart.badOffset).toLatin1() );
     

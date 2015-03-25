@@ -4,9 +4,10 @@
 
 using namespace Jpeg;
 
-ImagePart good(SharedImage *i, int len, QColor c)
+ImagePart good(std::shared_ptr<SharedImage> i, int len, QColor c)
 {
-    ImagePart ip= i->createPart();
+    ///@TODO: createPart(shared_ptr)
+    ImagePart ip= i->createPart(i);
     
     while (len-- > 0) {        
         Block b = ip.addWritableBlock();
@@ -28,7 +29,7 @@ ImagePart good(SharedImage *i, int len, QColor c)
     return ip;
 }
 
-ImagePart bad(SharedImage *i, int len, QColor c)
+ImagePart bad(std::shared_ptr<SharedImage> i, int len, QColor c)
 {
     ImagePart bad = good(i, len, c);
     assert(bad.setBad());
@@ -44,10 +45,11 @@ void dropBad(SharedImage *i)
 int main()
 {
     int x=8  *5;
-    int y=8  *4;
-    void *buffer = malloc( sizeof(SharedImage) + 2*x*y*sizeof(unsigned int) );
+    int y=8  *4;    
 
-    SharedImage *si = new (buffer) SharedImage(H1V1, x, y, 100);
+    SharedImageAllocator alloc;
+
+    std::shared_ptr<SharedImage> si( alloc.alloc(H1V1, x, y, 100), SharedImageDeleter(&alloc) );
     
                     good(si, 4, Qt::white);
                     good(si, 3, Qt::blue);
@@ -64,8 +66,6 @@ int main()
     si->dropBadParts();
     
     toQImage(*si).save("SAVED.png", "png");
-
-    free(buffer);
 
     return 0;
 }

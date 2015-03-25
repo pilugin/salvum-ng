@@ -2,7 +2,7 @@
 
 namespace Jpeg {
 
-PjHistory::PjHistory( BaseSharedImageAllocator &alloc )
+PjHistory::PjHistory(SharedImageAllocator *alloc )
 : mImageAlloc( alloc )
 {
 }

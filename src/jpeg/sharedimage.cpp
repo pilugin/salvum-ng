@@ -4,7 +4,7 @@
 namespace Jpeg
 {
 
-ImagePart::ImagePart(SharedImage *image_, int offset_, int count_, int badOffset_)
+ImagePart::ImagePart(std::shared_ptr<SharedImage> image_, int offset_, int count_, int badOffset_)
 : offset(offset_)
 , count(count_)
 , badOffset(badOffset_)
@@ -14,12 +14,12 @@ ImagePart::ImagePart(SharedImage *image_, int offset_, int count_, int badOffset
 
 ConstBlocks ImagePart::getBlocks(int blocksOffset) const
 {
-    return image->getBlocks( (isBad() ? badOffset : offset) + blocksOffset, count);
+    return image.lock()->getBlocks( (isBad() ? badOffset : offset) + blocksOffset, count);
 }
 
 Block ImagePart::addWritableBlock() 
 {
-    Block res = image->getWritableBlock();
+    Block res = image.lock()->getWritableBlock();
     if (!res.isNull())
         ++count;
         
@@ -28,40 +28,41 @@ Block ImagePart::addWritableBlock()
 
 bool ImagePart::setBad()
 {
-    badOffset = image->createBadPart( offset, count );
+    badOffset = image.lock()->createBadPart( offset, count );
     return badOffset >= 0;
 }
 
 void ImagePart::setGoodAgain()
 {
     if (isBad()) {
-        image->moveBadPartBack(badOffset, count, offset);
+        image.lock()->moveBadPartBack(badOffset, count, offset);
         badOffset = 0;
     }
 }
 
 int ImagePart::blockWidth() const 
 {
-    return Block::numCols( image->getScanType() );
+    return Block::numCols( image.lock()->getScanType() );
 }
 
 int ImagePart::blockHeight() const
 {
-    return Block::numRows( image->getScanType() );
+    return Block::numRows( image.lock()->getScanType() );
 }
 
 bool ImagePart::addBlock(pjpeg_image_info_t *pjpegInfo)
-{
+{    
+    auto i = image.lock();
     Block block = addWritableBlock();
     if (block.isNull())
         return false;
     
     copyPixels( block, 0, 8, 0, 8, pjpegInfo->m_pMCUBufR, pjpegInfo->m_pMCUBufG, pjpegInfo->m_pMCUBufB );    
-    if ( image->getScanType() & H2 )
+    if ( i->getScanType() & H2 )
         copyPixels( block, 8, 8, 0, 8, pjpegInfo->m_pMCUBufR +64, pjpegInfo->m_pMCUBufG +64, pjpegInfo->m_pMCUBufB +64 );
-    if ( image->getScanType() & V2 )
+    if ( i->getScanType() & V2 )
         copyPixels( block, 0, 8, 8, 8, pjpegInfo->m_pMCUBufR +128, pjpegInfo->m_pMCUBufG +128, pjpegInfo->m_pMCUBufB +128 );
-    if ( image->getScanType() == H2V2 )
+    if ( i->getScanType() == H2V2 )
         copyPixels( block, 8, 8, 8, 8, pjpegInfo->m_pMCUBufR +192, pjpegInfo->m_pMCUBufG +192, pjpegInfo->m_pMCUBufB +192 );
     return true;
 }
@@ -105,9 +106,14 @@ SharedImage::SharedImage(JpegScanType scanType, int width, int height, int badSe
     mCurrentBadBlock = totalBlockCount();
 }
 
-ImagePart SharedImage::createPart()
+SharedImage::~SharedImage()
 {
-    return ImagePart(this, mCurrentWritableBlock);
+}
+
+ImagePart SharedImage::createPart(std::shared_ptr<SharedImage> sharedPtr)
+{
+    assert(sharedPtr.get() == this);
+    return ImagePart(sharedPtr, mCurrentWritableBlock);
 }
 
 ConstBlocks SharedImage::getBlocks(int offset, int count) const
@@ -272,8 +278,35 @@ int Block::numCols(JpegScanType scanType)
 
 ////////////////////////////////////////////////////////
 
-BaseSharedImageAllocator::~BaseSharedImageAllocator()
+SharedImageAllocator::~SharedImageAllocator()
 {
+}
+
+SharedImage *SharedImageAllocator::alloc(JpegScanType scanType, int width, int height, int badSectorPercentRatio)
+{
+    void *mem = malloc( SharedImage::calculateSizeof(scanType, width, height, badSectorPercentRatio) );
+    if (mem) {
+        return create(mem, scanType, width, height, badSectorPercentRatio);
+    }
+    return nullptr;
+}
+
+void SharedImageAllocator::free(SharedImage *image)
+{
+    if (image) {
+        destroy(image);
+        free(image);
+    }
+}
+
+SharedImage *SharedImageAllocator::create(void *mem, JpegScanType scanType, int width, int height, int badSectorPercentRatio)
+{
+    return new (mem) SharedImage(scanType, width, height, badSectorPercentRatio);
+}
+
+void SharedImageAllocator::destroy(SharedImage *image)
+{
+    image->~SharedImage();
 }
 
 

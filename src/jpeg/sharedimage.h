@@ -3,6 +3,7 @@
 
 #include <picojpeg.h>
 #include <util/array.h>
+#include <util/singleton.h>
 #include <memory>
 #include <QMap>
 #include <QSize>
@@ -59,9 +60,9 @@ class SharedImage;
 
 struct ImagePart
 {
-    ImagePart(SharedImage *image =nullptr, int offset =0, int count =0, int badOffset =0);
+    ImagePart(std::shared_ptr<SharedImage> image =std::shared_ptr<SharedImage>(), int offset =0, int count =0, int badOffset =0);
 
-    bool isNull() const { return image == nullptr; }
+    bool isNull() const { return image.expired(); }
     bool isBad() const { return badOffset > 0; }
 
     ConstBlocks getBlocks(int blocksOffset =0) const;
@@ -78,19 +79,23 @@ struct ImagePart
     int offset;
     int count;
     int badOffset;
-    SharedImage *image;
+    std::weak_ptr<SharedImage> image;
 private:    
     void copyPixels(Block &block, int x, int cx, int y, int cy, unsigned char *r, unsigned char *g, unsigned char *b);
 
 };
 
+class SharedImageAllocator;
+
 class SharedImage
 {
-public:
+    friend class SharedImageAllocator;
     SharedImage(JpegScanType scanType, int width, int height, int badSectorPercentRatio =10);
+    ~SharedImage();
+public:
     static int calculateSizeof(JpegScanType scanType, int width, int height, int badSectorPercentRatio =10);
 
-    ImagePart createPart();
+    ImagePart createPart(std::shared_ptr<SharedImage> sharedPtr);
 
     ConstBlocks getBlocks(int offset, int count) const;
     Block getWritableBlock();
@@ -113,9 +118,9 @@ public:
     // these used for save/load    
     JpegScanType getScanType() const    { return mScanType; }
     QSize getSize() const               { return mSize; }
+    int getBadSectorRatio() const       { return mBadSectorRatio; }
     int getCurrentWritableBlock() const { return mCurrentWritableBlock; }
     int getCurrentBadBlock() const      { return mCurrentBadBlock; }
-    int getBadSectorRatio() const       { return mBadSectorRatio; }    
     const char *getData() const         { return reinterpret_cast<const char *>(mData.data()); }
     int         getDataSize() const     { return mData.capacity() * sizeof(unsigned int); }
     bool load(const char *data, int size, int writableBlock, int badBlock);
@@ -134,12 +139,26 @@ private:
     DynArray<unsigned int> mData;
 };
 
-class BaseSharedImageAllocator
+class SharedImageAllocator : public Singleton<SharedImageAllocator>
 {
 public:
-    virtual ~BaseSharedImageAllocator();
-    virtual SharedImage *alloc(JpegScanType scanType, int width, int height, int badSectorPercentRatio =10) =0;
-    virtual void free(SharedImage *image) =0;
+    virtual ~SharedImageAllocator();
+    virtual SharedImage *alloc(JpegScanType scanType, int width, int height, int badSectorPercentRatio =10);
+    virtual void free(SharedImage *image);
+
+protected:
+    SharedImage *create(void *mem, JpegScanType scanType, int width, int height, int badSectorPercentRatio);
+    void destroy(SharedImage *image);
+};
+
+
+class SharedImageDeleter
+{
+public:
+    SharedImageDeleter(SharedImageAllocator *deleterImpl) : mDeleterImpl(deleterImpl) {}
+    void operator()(SharedImage *ptr) { mDeleterImpl->free(ptr); }
+private:
+    SharedImageAllocator *mDeleterImpl;
 };
 
 }
